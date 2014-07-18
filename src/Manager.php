@@ -47,11 +47,11 @@ class Manager
 
     /**
      * Serializer
-     * 
+     *
      * @var \League\Fractal\Serializer\SerializerInterface
      **/
     protected $serializer;
-    
+
     /**
      * Create Data
      *
@@ -91,7 +91,7 @@ class Manager
     {
         return isset($this->includeParams[$include]) ? $this->includeParams[$include] : null;
     }
-    
+
     /**
      * Get Requested Includes
      *
@@ -102,7 +102,47 @@ class Manager
     {
         return $this->requestedIncludes;
     }
-    
+
+
+    /**
+     * Return fields param for specified include
+     *
+     * @param $include
+     * @return null
+     */
+    public function getRequestedFields($include) {
+        $scopeParams = $this->getIncludeParams($include);
+
+        return isset($scopeParams['fields']) ? $scopeParams['fields'] : null;
+    }
+
+    /**
+     * Fetch requested embeds/includes with filter. Useful for Laravel eager-loading.
+     *
+     * @todo Translate any "friendly names" (i.e. notification include can be userNotification model)
+     * Perhaps by passing in an array that maps "include" => "model"
+     *
+     * @param string $exclude
+     * @param null $mappings
+     * @return array
+     */
+    public function getRequestedIncludesAsModels($exclude = '', $mappings = null) {
+        $includes = $this->getRequestedIncludes();
+
+        // TODO: Finish map ability...
+        if ($mappings) {
+            foreach ($mappings as $map) {
+
+            }
+        }
+
+        $i = array_get(array_flip($includes), $exclude, null);
+
+        if ($i !== null) unset($includes[$i]);
+
+        return $includes;
+    }
+
     /**
      * Get Serializer
      *
@@ -141,7 +181,7 @@ class Manager
         }
 
         foreach ($includes as $include) {
-            
+
             list($includeName, $allModifiersStr) = array_pad(explode(':', $include, 2), 2, null);
 
             // Trim it down to a cool level of recursion
@@ -167,13 +207,13 @@ class Manager
             $modifierArr = array();
 
             for ($modifierIt = 0; $modifierIt < $modifierCount; $modifierIt++) {
-                
+
                 // [1] is the modifier
                 $modifierName = $allModifiersArr[1][$modifierIt];
 
                 // and [2] is delimited params
                 $modifierParamStr = $allModifiersArr[2][$modifierIt];
-                
+
                 // Make modifier array key with an array of params as the value
                 $modifierArr[$modifierName] = explode($this->paramDelimiter, $modifierParamStr);
             }

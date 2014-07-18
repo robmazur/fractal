@@ -21,6 +21,9 @@ class Scope
 {
     protected $availableIncludes = array();
 
+    // TODO: Need to have a list of fields to always include even if not requested?
+    protected $defaultFields = array('links');
+
     protected $currentScope;
 
     protected $manager;
@@ -225,7 +228,7 @@ class Scope
 
         return array($transformedData, $includedData);
     }
-   
+
     /**
      * Serialize a resource
      *
@@ -262,7 +265,13 @@ class Scope
         } else {
             $transformedData = $transformer->transform($data);
         }
-            
+
+        // check if fields param is specified for this include, if so apply filter
+        $fields = $this->manager->getRequestedFields($this->currentScope);
+        if (!is_callable($transformer) && is_array($fields)) {
+            $transformedData = array_intersect_key($transformedData, array_flip($fields));
+        }
+
         if ($this->transformerHasIncludes($transformer)) {
             $includedData = $this->fireIncludedTransformers($transformer, $data);
 
@@ -272,7 +281,7 @@ class Scope
                 $transformedData = array_merge($transformedData, $includedData);
             }
         }
-        
+
         return array($transformedData, $includedData);
     }
 
@@ -303,7 +312,7 @@ class Scope
         if (! $transformer instanceof TransformerAbstract) {
             return false;
         }
-        
+
         $defaultIncludes = $transformer->getDefaultIncludes();
         $availableIncludes = $transformer->getAvailableIncludes();
         return ! empty($defaultIncludes) || ! empty($availableIncludes);
