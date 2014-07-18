@@ -58,8 +58,8 @@ class ManagerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(array('foo', 'foo.bar'), $manager->getRequestedIncludes());
 
         // See if fancy syntax works
-        $manager->parseIncludes('foo:limit(5|1):order(-something)');
-        $this->assertEquals(array('limit' => array('5', '1'), 'order' => array('-something')), $manager->getIncludeParams('foo'));
+        $manager->parseIncludes('foo:limit(5|1):order(-something):fields(id|name)');
+        $this->assertEquals(array('limit' => array('5', '1'), 'order' => array('-something'), 'fields' => array('id','name')), $manager->getIncludeParams('foo'));
     }
 
     public function testRecursionLimiting()
