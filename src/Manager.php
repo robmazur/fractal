@@ -25,6 +25,13 @@ class Manager {
     protected $requestedIncludes = array();
 
     /**
+     * The character used to separate requested includes
+     *
+     * @var string
+     */
+    protected $includeDelimiter = '.';
+
+    /**
      * Array containing modifiers as keys and an array value of params
      *
      * @var array
@@ -37,6 +44,13 @@ class Manager {
      * @var string
      **/
     protected $paramDelimiter = '|';
+
+    /**
+     * List of fields to always include even if not requested, i.e. array('links')
+     *
+     * @var array
+     */
+    protected $defaultFields = array();
 
     /**
      * Upper limit to how many levels of included data are allowed
@@ -104,7 +118,6 @@ class Manager {
         return $this->requestedIncludes;
     }
 
-
     /**
      * Return fields param for specified include
      *
@@ -115,7 +128,7 @@ class Manager {
     {
         $scopeParams = $this->getIncludeParams($include);
 
-        return isset($scopeParams['fields']) ? $scopeParams['fields'] : null;
+        return isset($scopeParams['fields']) ? array_merge($scopeParams['fields'], $this->defaultFields) : null;
     }
 
     /**
@@ -161,29 +174,30 @@ class Manager {
     /**
      * Fetch requested embeds/includes with filter. Useful for Laravel eager-loading.
      *
-     * @todo Translate any "friendly names" (i.e. notification include can be userNotification model)
-     * Perhaps by passing in an array that maps "include" => "model"
+     * Translates any "friendly names" (i.e. notification include can be userNotification model).
      *
      * @param string $exclude
      * @param null $mappings
      * @return array
      */
-    public function getRequestedIncludesAsModels($exclude = '', $mappings = null)
+    public function getRequestedIncludesWithOptions($exclude = '', $mappings = null)
     {
         $includes = $this->getRequestedIncludes();
 
-        // TODO: Finish map ability...
+        // includes to rename
         if ($mappings)
         {
-            foreach ($mappings as $map)
+            foreach ($mappings as $old => $new)
             {
-
+                if ($x = array_search($old, $includes)) {
+                    $includes[$x] = $new;
+                }
             }
         }
 
-        $i = array_get(array_flip($includes), $exclude, null);
-
-        if ($i !== null) unset($includes[$i]);
+        // includes to exclude
+        $y = array_get(array_flip($includes), $exclude, null);
+        if ($y !== null) unset($includes[$y]);
 
         return $includes;
     }
@@ -231,7 +245,7 @@ class Manager {
         foreach ($includes as $include)
         {
 
-            list($includeName, $allModifiersStr) = array_pad(explode(':', $include, 2), 2, null);
+            list($includeName, $allModifiersStr) = array_pad(explode($this->includeDelimiter, $include, 2), 2, null);
 
             // Trim it down to a cool level of recursion
             $includeName = $this->trimToAcceptableRecursionLevel($includeName);

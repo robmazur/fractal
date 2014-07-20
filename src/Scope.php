@@ -21,9 +21,6 @@ class Scope
 {
     protected $availableIncludes = array();
 
-    // TODO: Need to have a list of fields to always include even if not requested?
-    protected $defaultFields = array('links');
-
     protected $currentScope;
 
     protected $manager;
@@ -268,7 +265,7 @@ class Scope
 
         // check if fields param is specified for this include, if so apply filter
         $fields = $this->manager->getRequestedFields($this->currentScope);
-        if (!is_callable($transformer) && is_array($fields)) {
+        if (is_array($fields)) {
             $transformedData = array_intersect_key($transformedData, array_flip($fields));
         }
 
