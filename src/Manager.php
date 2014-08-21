@@ -176,7 +176,8 @@ class Manager {
      *
      * Translates any "friendly names" to relation names via $mappings array (i.e. notification include can be userNotification model).
      *
-     * @param null $mappings
+     * @param TransformerAbstract $transformer
+     * @param array|null $mappings
      * @return array
      */
     public function getRequestedIncludesWithOptions(TransformerAbstract $transformer, array $mappings = [])
