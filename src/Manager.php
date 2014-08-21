@@ -15,14 +15,21 @@ use League\Fractal\Resource\ResourceAbstract;
 use League\Fractal\Serializer\DataArraySerializer;
 use League\Fractal\Serializer\SerializerAbstract;
 
-class Manager
-{
+class Manager {
+
     /**
      * Array of scope identifiers for resources to include
      *
      * @var array
      **/
     protected $requestedIncludes = array();
+
+    /**
+     * The character used to separate requested includes
+     *
+     * @var string
+     */
+    protected $includeDelimiter = '.';
 
     /**
      * Array containing modifiers as keys and an array value of params
@@ -37,6 +44,13 @@ class Manager
      * @var string
      **/
     protected $paramDelimiter = '|';
+
+    /**
+     * List of fields to always include even if not requested, i.e. array('links')
+     *
+     * @var array
+     */
+    protected $defaultFields = array();
 
     /**
      * Upper limit to how many levels of included data are allowed
@@ -68,7 +82,8 @@ class Manager
         $scopeInstance = new Scope($this, $resource, $scopeIdentifier);
 
         // Update scope history
-        if ($parentScopeInstance !== null) {
+        if ($parentScopeInstance !== null)
+        {
 
             // This will be the new children list of parents (parents parents, plus the parent)
             $scopeArray = $parentScopeInstance->getParentScopes();
@@ -103,42 +118,84 @@ class Manager
         return $this->requestedIncludes;
     }
 
-
     /**
      * Return fields param for specified include
      *
      * @param $include
      * @return null
      */
-    public function getRequestedFields($include) {
+    public function getRequestedFields($include)
+    {
         $scopeParams = $this->getIncludeParams($include);
 
-        return isset($scopeParams['fields']) ? $scopeParams['fields'] : null;
+        return isset($scopeParams['fields']) ? array_merge($scopeParams['fields'], $this->defaultFields) : null;
     }
 
     /**
-     * Fetch requested embeds/includes with filter. Useful for Laravel eager-loading.
+     * Return limit param for specified include
      *
-     * @todo Translate any "friendly names" (i.e. notification include can be userNotification model)
-     * Perhaps by passing in an array that maps "include" => "model"
-     *
-     * @param string $exclude
-     * @param null $mappings
-     * @return array
+     * @param $include
+     * @return null
      */
-    public function getRequestedIncludesAsModels($exclude = '', $mappings = null) {
-        $includes = $this->getRequestedIncludes();
+    public function getRequestedLimit($include)
+    {
+        $scopeParams = $this->getIncludeParams($include);
 
-        // TODO: Finish map ability...
-        if ($mappings) {
-            foreach ($mappings as $map) {
+        return isset($scopeParams['limit']) ? (int)$scopeParams['limit'][0] : null;
+    }
 
+    /**
+     * Return order param for specified include
+     *
+     * @param $include
+     * @return null
+     */
+    public function getRequestedOrder($include)
+    {
+        $scopeParams = $this->getIncludeParams($include);
+
+        $order = null;
+        if (isset($scopeParams['order']))
+        {
+            $order = $scopeParams['order'][0];
+
+            if ($order[0] === '-')
+            {
+                $order = substr($order, 1) . ' desc';
+            } else
+            {
+                $order .= ' asc';
             }
         }
 
-        $i = array_get(array_flip($includes), $exclude, null);
+        return $order;
+    }
 
-        if ($i !== null) unset($includes[$i]);
+    /**
+     * Fetch requested embeds/includes with filter. Which can then be used for Laravel eager-loading.
+     *
+     * Translates any "friendly names" to relation names via $mappings array (i.e. notification include can be userNotification model).
+     *
+     * @param null $mappings
+     * @return array
+     */
+    public function getRequestedIncludesWithOptions(TransformerAbstract $transformer, array $mappings = [])
+    {
+        $includes = $this->getRequestedIncludes();
+
+        // filter against available includes for this transformer
+        $includes = array_intersect($includes, $transformer->getAvailableIncludes());
+
+        // includes to rename
+        if (sizeof($mappings) > 0)
+        {
+            foreach ($mappings as $old => $new)
+            {
+                if ($x = array_search($old, $includes)) {
+                    $includes[$x] = $new;
+                }
+            }
+        }
 
         return $includes;
     }
@@ -151,7 +208,8 @@ class Manager
      **/
     public function getSerializer()
     {
-        if (! $this->serializer) {
+        if (!$this->serializer)
+        {
             $this->setSerializer(new DataArraySerializer);
         }
 
@@ -170,30 +228,35 @@ class Manager
         // Wipe these before we go again
         $this->requestedIncludes = $this->includeParams = array();
 
-        if (is_string($includes)) {
+        if (is_string($includes))
+        {
             $includes = explode(',', $includes);
         }
 
-        if (! is_array($includes)) {
+        if (!is_array($includes))
+        {
             throw new \InvalidArgumentException(
-                'The parseIncludes() method expects a string or an array. '.gettype($includes).' given'
+                'The parseIncludes() method expects a string or an array. ' . gettype($includes) . ' given'
             );
         }
 
-        foreach ($includes as $include) {
+        foreach ($includes as $include)
+        {
 
-            list($includeName, $allModifiersStr) = array_pad(explode(':', $include, 2), 2, null);
+            list($includeName, $allModifiersStr) = array_pad(explode($this->includeDelimiter, $include, 2), 2, null);
 
             // Trim it down to a cool level of recursion
             $includeName = $this->trimToAcceptableRecursionLevel($includeName);
 
-            if (in_array($includeName, $this->requestedIncludes)) {
+            if (in_array($includeName, $this->requestedIncludes))
+            {
                 continue;
             }
             $this->requestedIncludes[] = $includeName;
 
             // No Params? Bored
-            if ($allModifiersStr === null) {
+            if ($allModifiersStr === null)
+            {
                 continue;
             }
 
@@ -206,7 +269,8 @@ class Manager
 
             $modifierArr = array();
 
-            for ($modifierIt = 0; $modifierIt < $modifierCount; $modifierIt++) {
+            for ($modifierIt = 0; $modifierIt < $modifierCount; $modifierIt++)
+            {
 
                 // [1] is the modifier
                 $modifierName = $allModifiersArr[1][$modifierIt];
@@ -237,6 +301,7 @@ class Manager
     public function setRecursionLimit($recursionLimit)
     {
         $this->recursionLimit = $recursionLimit;
+
         return $this;
     }
 
@@ -250,6 +315,7 @@ class Manager
     public function setSerializer(SerializerAbstract $serializer)
     {
         $this->serializer = $serializer;
+
         return $this;
     }
 
@@ -265,14 +331,16 @@ class Manager
     {
         $parsed = array();
 
-        foreach ($this->requestedIncludes as $include) {
+        foreach ($this->requestedIncludes as $include)
+        {
             $nested = explode('.', $include);
 
             $part = array_shift($nested);
             $parsed[] = $part;
 
-            while (count($nested) > 0) {
-                $part .= '.'.array_shift($nested);
+            while (count($nested) > 0)
+            {
+                $part .= '.' . array_shift($nested);
                 $parsed[] = $part;
             }
         }
